@@ -36,6 +36,7 @@ FastAPI backend for twz.tw website
 
 ```bash
 twz-backend
+├── public # Public folder for media
 ├── static # Static file folder for requested download from api or mwml-bot
 ├── models # declaration for types and models
 ├── services # Implementation of services for download and file, etc.
