@@ -23,21 +23,21 @@ def get_hashed_file_name(file_name: str):
     return hash_value
 
 
-def get_static_file_list() -> List[StaticFile]:
-    files = os.listdir('./static')
-    files = list(filter(lambda f: '.mp4' in f, files))
+def get_file_list_by_path(path: str) -> List[StaticFile]:
+    files = os.listdir(path)
+    files = list(filter(lambda f: f != '.gitkeep', files))
     file_list = list(map(lambda f: {
         'name': f,
-        'size': get_size(f'./static/{f}'),
+        'size': get_size(f'{path}/{f}'),
         'link': f'/api/download/{get_hashed_file_name(f)}',
-        'modified_time': datetime.fromtimestamp(os.path.getctime(f'./static/{f}')).strftime('%Y-%m-%d %H:%M:%S')
+        'modified_time': datetime.fromtimestamp(os.path.getctime(f'{path}/{f}')).strftime('%Y-%m-%d %H:%M:%S')
     }, files))
     return file_list
 
 
-def get_hash_map():
+def get_hash_map(path: str):
     hash_map = {}
-    file_list = get_static_file_list()
+    file_list = get_file_list_by_path(path)
     for f in file_list:
         hashed = get_hashed_file_name(f['name'])
         hash_map[hashed] = f['name']

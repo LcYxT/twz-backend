@@ -1,10 +1,10 @@
-from fastapi import FastAPI, HTTPException, File, UploadFile
+from fastapi import FastAPI, HTTPException, File, UploadFile, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from fastapi.responses import FileResponse
-from services.file_service import get_hash_map, get_static_file_list, get_static_file_list
+from services.file_service import get_hash_map, get_file_list_by_path, get_file_list_by_path
 from models.models import ServerDownloadItem
-from services.download_service import download_3rd_party, download_youtube
+from services.download_service import download_3rd_party, download_youtube, downloading_list
 from config import origins
 from utils.common import is_valid_url
 from typing import Annotated
@@ -28,7 +28,7 @@ async def root():
 
 @app.get("/file/list")
 async def get_file_list():
-    return get_static_file_list()
+    return get_file_list_by_path('./static')
 
 
 @app.get("/download/{hashed_file_name}", response_class=FileResponse)
@@ -36,22 +36,24 @@ async def get_file(hashed_file_name: str):
     if os.path.exists(f'static/{hashed_file_name}'):
         return f'static/{hashed_file_name}'
 
-    hash_map = get_hash_map()
+    hash_map = get_hash_map('./static')
     if not hashed_file_name in hash_map:
         raise HTTPException(status_code=404, detail="File not found")
     return f'static/{hash_map[hashed_file_name]}'
 
 
 @app.post("/server-download")
-async def get_server_download(item: ServerDownloadItem):
-    if not is_valid_url(item.url):
-        raise HTTPException(status_code=404, detail="Invalid URL")
-    if 'youtube' in item.url or 'youtu.be' in item.url:
-        download_youtube(item.url)
-    else:
-        download_3rd_party(item.url)
-
-    return get_static_file_list()
+async def get_server_download(item: ServerDownloadItem, background_tasks: BackgroundTasks):
+    def download_server_item(item: ServerDownloadItem):
+        if not is_valid_url(item.url):
+            raise HTTPException(status_code=404, detail="Invalid URL")
+        if 'youtube' in item.url or 'youtu.be' in item.url:
+            download_youtube(item.url)
+        else:
+            download_3rd_party(item.url)
+    background_tasks.add_task(download_server_item, item)
+    
+    return get_file_list_by_path('./static')
 
 @app.post("/files/")
 async def create_file(file: Annotated[bytes, File()]):
@@ -75,3 +77,7 @@ async def create_upload_file(file: UploadFile, auth_key: str):
             buffer.write(chunk)
 
     return {"filename": file.filename, "saved_path": file_path}
+
+@app.get('/downloading-list')
+async def get_downloading_list():
+    return downloading_list
